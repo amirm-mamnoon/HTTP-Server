@@ -1,0 +1,6 @@
+This is a test text file for early stages of project.
+Project is HTTP server from scratch. Since network is reading files from other computers in chunks,
+before doing that I must be able to read a file in such manner(8 byte chunks).
+So, therefore It can be ignored, it's just a source of text.
+I should've end the file in previous line but I thought it would be good to add another line for fun:)))
+END
