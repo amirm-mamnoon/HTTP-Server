@@ -1,65 +1,99 @@
 #include <cstring>
 #include <iostream>
-#include <fstream>
+#include <queue>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <fcntl.h>
+#include <unistd.h>
 
 using std::cout;
-using std::endl;
-using std::string;
 
 const char *filename = "messages.txt";
 const int chunk_size = 8;
-const int sentence_max_size = 1024;
 
-void print_buffer(const char *buffer, int length)
+std::queue<std::string> lines_queue;
+std::mutex queue_mutex;
+std::condition_variable cv;
+bool parsing_finished = 0;
+
+void pars_fd_to_queue(int fd)
 {
-    cout << "read: ";
-    for (int i = 0; i < length; i++)
+    char buffer[chunk_size];
+    std::string sentence;
+    ssize_t bytesRead = 0;
+
+    while ((bytesRead = read(fd, buffer, chunk_size)) > 0)
     {
-        cout << buffer[i];
+        for (int i = 0; i < bytesRead; i++)
+        {
+            sentence += buffer[i];
+
+            if (buffer[i] == '\n')
+            {
+                {
+                    std::lock_guard<std::mutex> lock(queue_mutex);
+                    lines_queue.push(sentence);
+                }
+                cv.notify_one();
+
+                sentence.clear();
+            }
+        }
+        std::memset(buffer, 0, sizeof(buffer));
     }
+
+    if (!sentence.empty())
+    {
+        std::lock_guard<std::mutex> lock(queue_mutex);
+        lines_queue.push(sentence);
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(queue_mutex);
+        parsing_finished = true;
+    }
+    cv.notify_all();
 }
 
 int main()
 {
-
-    std::ifstream file(filename, std::ios::binary);
-
-    if (!file.is_open())
+    int fd = open(filename, O_RDONLY);
+    if (fd < 0)
     {
-        std::cerr << "cannot open the file\n";
+        std::cerr << "Failed to open file!\n";
         return 1;
     }
 
-    char buffer[chunk_size];
-    char sentence_buffer[sentence_max_size];
-    int sentence_pos = 0;
-    while (file.read(buffer, chunk_size) || file.gcount() > 0)
-    {
+    std::thread producer(pars_fd_to_queue, fd);
 
-        int bytesRead = file.gcount();
-        for (int i = 0; i < bytesRead; i++)
+    std::string line;
+    while (1)
+    {
+        std::unique_lock<std::mutex> lock(queue_mutex);
+
+        cv.wait(lock, []
+                { return !lines_queue.empty() || parsing_finished; });
+
+        while (!lines_queue.empty())
         {
-            if (sentence_pos < sentence_max_size - 1)
-            {
-                sentence_buffer[sentence_pos++] = buffer[i];
+            line = lines_queue.front();
+            lines_queue.pop();
 
-                if (buffer[i] == '\n')
-                {
-                    print_buffer(sentence_buffer, sentence_pos);
-                    memset(sentence_buffer, 0, sizeof(sentence_buffer));
-                    sentence_pos = 0;
-                }
-            }
+            cout << "read: " << line;
         }
-        memset(buffer, 0, sizeof(buffer));
+
+        if (parsing_finished && lines_queue.empty())
+        {
+            break;
+        }
     }
 
-    if (sentence_pos > 0)
+    if (producer.joinable())
     {
-        print_buffer(sentence_buffer, sentence_pos);
+        producer.join();
     }
-        cout << endl;
-
-    file.close();
+    close(fd);
+    cout << "\n";
     return 0;
 }
