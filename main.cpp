@@ -56,12 +56,21 @@ void pars_fd_to_queue(int fd)
     cv.notify_all();
 }
 
+int get_from_file(const char* filename) {
+    int fd = open(filename, O_RDONLY);
+    if (fd < 0) {
+        std::cerr << "Failed to open file!\n";
+        return -1;
+    }
+
+    return fd;
+}
+
 int main()
 {
-    int fd = open(filename, O_RDONLY);
+    int fd = get_from_file(filename);
     if (fd < 0)
     {
-        std::cerr << "Failed to open file!\n";
         return 1;
     }
 
