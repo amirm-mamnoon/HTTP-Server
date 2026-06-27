@@ -1,3 +1,5 @@
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <cstring>
 #include <iostream>
 #include <queue>
@@ -66,15 +68,53 @@ int get_from_file(const char* filename) {
     return fd;
 }
 
+int get_socket_server() {
+    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (fd < 0) {
+        return -1;
+    }
+
+    int opt = 1;
+    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    sockaddr_in serverAddress;
+    serverAddress.sin_family = AF_INET;
+    serverAddress.sin_port = htons(42069);
+    serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
+
+    if (bind(fd, (sockaddr*)&serverAddress, sizeof(serverAddress)) < 0) {
+        std::cerr << "error bind\n"; close(fd); return -1;
+    }
+    if (listen(fd, 5) < 0) {
+        std::cerr << "error listen\n"; close(fd); return -1;
+    }
+
+    return fd;
+}
+
+int get_from_socket(int fd) {
+    int clientSocket = accept(fd, nullptr, nullptr);
+    if (clientSocket < 0) {
+        close(clientSocket);
+        return -1;
+    }
+    return clientSocket;
+}
+
 int main()
 {
-    int fd = get_from_file(filename);
+    int fd = get_socket_server();
     if (fd < 0)
     {
         return 1;
     }
 
-    std::thread producer(pars_fd_to_queue, fd);
+    int clientSocket = get_from_socket(fd);
+    if (clientSocket < 0) {
+        std::cerr << "error client\n"; close(fd); return 1;
+    }
+
+    std::thread producer(pars_fd_to_queue, clientSocket);
 
     std::string line;
     while (1)
@@ -103,6 +143,7 @@ int main()
         producer.join();
     }
     close(fd);
+    close(clientSocket);
     cout << "\n";
     return 0;
 }
