@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(serv)
 
+set(CMAKE_CXX_COMPILER clang++)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -14,6 +15,8 @@ find_package(Threads REQUIRED)
 add_executable(serv.out
     main.cpp
     src/requests/requests.cpp
+    src/responses/responses.cpp
+    src/validator/validator.cpp
 )
 
 # Link pthread
