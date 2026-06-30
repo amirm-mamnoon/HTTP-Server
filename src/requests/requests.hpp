@@ -3,6 +3,8 @@
 #include <iostream>
 #include <vector>
 
+#include "../validator/validator.hpp"
+
 using std::string;
 
 struct requestHeader 
@@ -13,7 +15,7 @@ struct requestHeader
 
 struct request
 {
-    string method;
+    methods method;
     string uri;
     string version;
     std::vector<requestHeader> header;
