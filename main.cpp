@@ -8,8 +8,12 @@
 #include <condition_variable>
 #include <fcntl.h>
 #include <unistd.h>
+#include <csignal>
+#include <chrono>
+#include <atomic>
 
 #include "src/requests/requests.hpp"
+#include "src/responses/responses.hpp"
 
 using std::cout;
 
@@ -82,6 +86,7 @@ int get_socket_server()
 
     int opt = 1;
     setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
 
     sockaddr_in serverAddress;
     serverAddress.sin_family = AF_INET;
@@ -214,11 +219,17 @@ int main()
             }
         }
 
+        response resp;
+        bool flag = createResponse(resp); // change the name later
+        if (flag) {
+            sendResponse(clientSocket, resp);
+        }
         if (parsing_finished && lines_queue.empty())
         {
             break;
         }
     }
+
 
     if (producer.joinable())
     {
