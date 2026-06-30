@@ -68,7 +68,7 @@ bool pars_header_line(string line, request &req)
         return false;
     }
 
-    header h;
+    requestHeader h;
     h.key = line.substr(0, colon_pos);
     h.value = line.substr(colon_pos + 1);
     trim(h.value);

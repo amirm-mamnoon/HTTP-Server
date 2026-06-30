@@ -5,7 +5,7 @@
 
 using std::string;
 
-struct header
+struct requestHeader 
 {
     string key;
     string value;
@@ -16,7 +16,7 @@ struct request
     string method;
     string uri;
     string version;
-    std::vector<header> header;
+    std::vector<requestHeader> header;
     string body;
 };
 
