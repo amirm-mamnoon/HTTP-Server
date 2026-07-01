@@ -14,17 +14,95 @@
 
 #include "src/requests/requests.hpp"
 #include "src/responses/responses.hpp"
+#include "src/validator/validator.hpp"
 
 using std::cout;
 
-const char *filename = "messages.txt";
 const int chunk_size = 8;
 
 std::queue<std::string> lines_queue;
 std::mutex queue_mutex;
 std::condition_variable cv;
-bool parsing_finished = 0;
+bool parsing_finished = false;
 
+enum class ParseState
+{
+    RequestLine,
+    Headers,
+    Body
+};
+
+// Helper function to handle the HTTP parsing state machine.
+// Returns true when a complete HTTP request has been fully parsed.
+bool parse_http_line(const std::string &line, request &req, ParseState &state, size_t &expected_content_length)
+{
+    if (state == ParseState::RequestLine)
+    {
+        if (!pars_request_line(line, req))
+        {
+            std::cerr << "Failed to parse request line: " << line << "\n";
+        }
+        state = ParseState::Headers;
+        return false;
+    }
+
+    if (state == ParseState::Headers)
+    {
+        if (line == "\r\n" || line == "")
+        {
+            // End of headers reached. Inspect Content-Length for a body.
+            expected_content_length = 0;
+            for (const auto &h : req.header)
+            {
+                std::string key_lower = h.key;
+                for (char &c : key_lower)
+                {
+                    c = std::tolower(static_cast<unsigned char>(c));
+                }
+
+                if (key_lower == "content-length")
+                {
+                    expected_content_length = std::stoll(h.value);
+                    cout << "Expected Content-Length: " << expected_content_length << "\n";
+                    break;
+                }
+            }
+
+            if (expected_content_length == 0)
+            {
+                req.body = "[LOG]: NO LOG";
+                return true; // No body expected, request is complete!
+            }
+            state = ParseState::Body;
+            return false;
+        }
+        else
+        {
+            if (!pars_header_line(line, req))
+            {
+                std::cerr << "Failed to parse header line: " << line << "\n";
+            }
+            return false;
+        }
+    }
+
+    if (state == ParseState::Body)
+    {
+        req.body += line;
+        if (req.body.length() >= expected_content_length)
+        {
+            if (req.body.length() > expected_content_length)
+            {
+                req.body = req.body.substr(0, expected_content_length);
+            }
+            return true; // Body fully read, request is complete!
+        }
+    }
+
+    return false;
+}
+
+// Thread worker: Reads raw data from descriptor and breaks it into lines
 void pars_fd_to_queue(int fd)
 {
     char buffer[chunk_size];
@@ -36,7 +114,6 @@ void pars_fd_to_queue(int fd)
         for (int i = 0; i < bytesRead; i++)
         {
             sentence += buffer[i];
-
             if (buffer[i] == '\n')
             {
                 {
@@ -44,7 +121,6 @@ void pars_fd_to_queue(int fd)
                     lines_queue.push(sentence);
                 }
                 cv.notify_one();
-
                 sentence.clear();
             }
         }
@@ -64,44 +140,30 @@ void pars_fd_to_queue(int fd)
     cv.notify_all();
 }
 
-int get_from_file(const char *filename)
-{
-    int fd = open(filename, O_RDONLY);
-    if (fd < 0)
-    {
-        std::cerr << "Failed to open file!\n";
-        return -1;
-    }
-
-    return fd;
-}
-
 int get_socket_server()
 {
     int fd = socket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0)
-    {
         return -1;
-    }
 
     int opt = 1;
     setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
     setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
 
-    sockaddr_in serverAddress;
+    sockaddr_in serverAddress{};
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons(42069);
     serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
 
     if (bind(fd, (sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
     {
-        std::cerr << "error bind\n";
+        std::cerr << "Error binding socket\n";
         close(fd);
         return -1;
     }
     if (listen(fd, 5) < 0)
     {
-        std::cerr << "error listen\n";
+        std::cerr << "Error listening on socket\n";
         close(fd);
         return -1;
     }
@@ -109,134 +171,86 @@ int get_socket_server()
     return fd;
 }
 
-int get_from_socket(int fd)
-{
-    int clientSocket = accept(fd, nullptr, nullptr);
-    if (clientSocket < 0)
-    {
-        close(clientSocket);
-        return -1;
-    }
-    return clientSocket;
-}
-
 int main()
 {
-    int fd = get_socket_server();
-    if (fd < 0)
-    {
+    int serverFd = get_socket_server();
+    if (serverFd < 0)
         return 1;
-    }
 
-    int clientSocket = get_from_socket(fd);
+    int clientSocket = accept(serverFd, nullptr, nullptr);
     if (clientSocket < 0)
     {
-        std::cerr << "error client\n";
-        close(fd);
+        std::cerr << "Error accepting client connection\n";
+        close(serverFd);
         return 1;
     }
 
+    // Spin up the producer thread to read from the socket
     std::thread producer(pars_fd_to_queue, clientSocket);
 
-    std::string line;
-    size_t expected_content_length = 0;
-    int state = 0; /* 0: request-line, 1: header-line(s), 2: body*/
+    // Parser State variables
+    ParseState parse_state = ParseState::RequestLine;
     request req;
-    while (1)
+    size_t expected_content_length = 0;
+
+    // Consumer Loop
+    while (true)
     {
-        std::unique_lock<std::mutex> lock(queue_mutex);
+        std::string line;
 
-        cv.wait(lock, []
-                { return !lines_queue.empty() || parsing_finished; });
-
-        while (!lines_queue.empty())
+        // Critical Section: Protect queue retrieval only
         {
+            std::unique_lock<std::mutex> lock(queue_mutex);
+            cv.wait(lock, []
+                    { return !lines_queue.empty() || parsing_finished; });
+
+            // Safe exit condition: producer is done and queue is entirely drained
+            if (lines_queue.empty() && parsing_finished)
+            {
+                break;
+            }
+
             line = lines_queue.front();
             lines_queue.pop();
-
-            if (state == 0)
-            {
-                bool res = pars_request_line(line, req);
-                if (!res)
-                {
-                    std::cerr << "Failed to parse request line: " << line << "\n";
-                }
-                state = 1;
-            }
-            else if (state == 1)
-            {
-                if (line == "\r\n" || line == "")
-                {
-                    state = 2;
-                    expected_content_length = 0;
-                    for (const auto &h : req.header)
-                    {
-                        string key_lower = h.key;
-                        for (char &c : key_lower)
-                            c = std::tolower(static_cast<unsigned char>(c));
-
-                        if (key_lower == "content-length")
-                        {
-                            expected_content_length = std::stoll(h.value);
-                            cout << "Here, expected-content-line: " << expected_content_length << "\n";
-                            break;
-                        }
-                    }
-
-                    if (expected_content_length == 0)
-                    {
-                        req.body = "[LOG]: NO LOG";
-                        print_request(req);
-                        state = 0;
-                        req = request();
-                    }
-                }
-                else
-                {
-                    bool res = pars_header_line(line, req);
-                    if (!res)
-                    {
-                        std::cerr << "Failed to parse header line: " << line << "\n";
-                    }
-                }
-            }
-            else if (state == 2)
-            {
-                req.body += line;
-
-                if (req.body.length() >= expected_content_length)
-                {
-                    if (req.body.length() > expected_content_length)
-                    {
-                        req.body = req.body.substr(0, expected_content_length);
-                    }
-
-                    print_request(req);
-                    state = 0;
-                    req = request();
-                    expected_content_length = 0;
-                }
-            }
         }
 
-        response resp;
-        bool flag = createResponse(resp); // change the name later
-        if (flag) {
-            sendResponse(clientSocket, resp);
-        }
-        if (parsing_finished && lines_queue.empty())
+        // Heavy lifting happens safely outside the lock
+        bool request_complete = parse_http_line(line, req, parse_state, expected_content_length);
+
+        if (request_complete)
         {
-            break;
+            // 1. Validation
+            if (validateRequest(req))
+            {
+                cout << "Request is valid\n";
+            }
+            else
+            {
+                std::cerr << "Request is invalid\n";
+            }
+            print_request(req);
+
+            // 2. Execution & Response (Triggered ONLY when request is fully formed)
+            response resp;
+            if (createResponse(resp))
+            {
+                sendResponse(clientSocket, resp);
+            }
+
+            // 3. Reset pipeline variables for the next potential HTTP request
+            parse_state = ParseState::RequestLine;
+            req = request();
+            expected_content_length = 0;
         }
     }
-
 
     if (producer.joinable())
     {
         producer.join();
     }
-    close(fd);
+
     close(clientSocket);
-    cout << "\n";
+    close(serverFd);
+    cout << "Server shutting down cleanly.\n";
     return 0;
 }
