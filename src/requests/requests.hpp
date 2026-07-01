@@ -5,24 +5,23 @@
 
 #include "../validator/validator.hpp"
 
-using std::string;
 
 struct requestHeader 
 {
-    string key;
-    string value;
+    std::string key;
+    std::string value;
 };
 
 struct request
 {
-    methods method;
-    string uri;
-    string version;
+    std::string method;
+    std::string uri;
+    std::string version;
     std::vector<requestHeader> header;
-    string body;
+    std::string body;
 };
 
 void print_request(const request& req);
-void trim(string& str);
-bool pars_request_line(string line, request& req);
-bool pars_header_line(string line, request& req); 
+void trim(std::string& str);
+bool pars_request_line(std::string line, request& req);
+bool pars_header_line(std::string line, request& req); 

@@ -1,4 +1,5 @@
 #include "requests.hpp"
+
 #include "../validator/validator.hpp"
 
 #include <iostream>
@@ -10,7 +11,7 @@ const string SEPARATOR = "\r\n";
 
 void print_request(const request& req) {
     cout << "=== HTTP Request ===\n";
-    cout << "Method:  " << methodToString(req.method) << "\n";
+    cout << "Method:  " << req.method << "\n";
     cout << "URI:     " << req.uri << "\n";
     cout << "Version: " << req.version << "\n";
     
@@ -51,12 +52,7 @@ bool pars_request_line(string line, request &req)
         return false;
     }
 
-    std::string methodStr = line.substr(0, space1);
-    auto method = stringToMethod(methodStr);
-    if (!method) {
-        return false;
-    }
-    req.method = *method;
+    req.method = line.substr(0, space1);
     req.uri = line.substr(space1 + 1, space2 - space1 - 1);
     req.version = line.substr(space2 + 1);
 
