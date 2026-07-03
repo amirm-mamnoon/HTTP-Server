@@ -15,6 +15,8 @@
 #include "src/requests/requests.hpp"
 #include "src/responses/responses.hpp"
 #include "src/validator/validator.hpp"
+#include "src/router/router.hpp"
+#include "src/handler/handler.hpp"
 
 using std::cout;
 
@@ -185,6 +187,10 @@ int main()
         return 1;
     }
 
+    routing_table router;
+    router[{"GET", "/"}] = handle_homepage;
+    router[{"GET", "/api/data"}] = handle_api_data;
+
     // Spin up the producer thread to read from the socket
     std::thread producer(pars_fd_to_queue, clientSocket);
 
@@ -219,24 +225,33 @@ int main()
 
         if (request_complete)
         {
-            bool isOkRequest = true;
+            print_request(req);
+            response resp;
+
             // 1. Validation
-            if (validateRequest(req))
+            if (!validateRequest(req))
             {
-                cout << "Request is valid\n";
+                std::cerr << "Request is invalid\n";
+                resp.statusCode = 400;
+                resp.statusText = "Bad Request";
+                resp.body = "<h1>400 - Bad Request</h1>";
             }
             else
             {
-                std::cerr << "Request is invalid\n";
-                isOkRequest = false;
+                // 2. Execution & Response (Triggered ONLY when request is fully formed)
+                routing_key current_key = {req.method, req.uri};
+                auto route_iterator = router.find(current_key);
+                if (route_iterator != router.end())
+                {
+                    resp = route_iterator->second(req);
+                }
+                else
+                {
+                    resp = handle_404(req);
+                }
             }
-            print_request(req);
 
-            // 2. Execution & Response (Triggered ONLY when request is fully formed)
-            response resp;
-            createResponse(resp, isOkRequest);
             sendResponse(clientSocket, resp);
-            
 
             // 3. Reset pipeline variables for the next potential HTTP request
             parse_state = ParseState::RequestLine;
