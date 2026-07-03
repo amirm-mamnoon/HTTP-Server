@@ -71,3 +71,7 @@ Testing/
 
 # editor related
 .vscode/*
+
+
+# html files
+public/*
