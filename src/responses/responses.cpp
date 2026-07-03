@@ -46,14 +46,19 @@ bool sendResponse(int fd, const response &resp)
 }
 
 
-bool createResponse(response& resp) { // make it more dynamic/request driven
+bool createResponse(response& resp, bool isOkRequest) { // make it more dynamic/request driven
     int flag = true;
 
     responseHeader h;
     h.key = "foo";
     h.value = "baz";
-    resp.statusCode = 200;
-    resp.statusText = "OK";
+    if (isOkRequest) {
+        resp.statusCode = 200;
+        resp.statusText = "OK";
+    } else {
+        resp.statusCode = 400;
+        resp.statusText = "Bad Request";
+    }
     resp.headers.push_back(h);
     resp.body = " { name: \"amir\", age: 24 } ";
 

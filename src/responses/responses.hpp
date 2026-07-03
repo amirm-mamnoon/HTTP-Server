@@ -23,4 +23,4 @@ struct response
 };
 
 bool sendResponse(int fd, const response& resp);
-bool createResponse(response& resp);
+bool createResponse(response& resp, bool isOkRequest);

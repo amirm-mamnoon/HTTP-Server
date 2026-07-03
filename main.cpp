@@ -219,6 +219,7 @@ int main()
 
         if (request_complete)
         {
+            bool isOkRequest = true;
             // 1. Validation
             if (validateRequest(req))
             {
@@ -227,15 +228,15 @@ int main()
             else
             {
                 std::cerr << "Request is invalid\n";
+                isOkRequest = false;
             }
             print_request(req);
 
             // 2. Execution & Response (Triggered ONLY when request is fully formed)
             response resp;
-            if (createResponse(resp))
-            {
-                sendResponse(clientSocket, resp);
-            }
+            createResponse(resp, isOkRequest);
+            sendResponse(clientSocket, resp);
+            
 
             // 3. Reset pipeline variables for the next potential HTTP request
             parse_state = ParseState::RequestLine;
