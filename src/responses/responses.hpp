@@ -3,13 +3,11 @@
 #include <string>
 #include <vector>
 
-
-struct responseHeader 
+struct responseHeader
 {
     std::string key;
     std::string value;
 };
-
 
 struct response
 {
@@ -22,5 +20,5 @@ struct response
     response() : httpVersion("HTTP/1.1"), statusCode(200), statusText("OK") {}
 };
 
-bool sendResponse(int fd, const response& resp);
-bool createResponse(response& resp, bool isOkRequest);
+bool sendResponse(int fd, const response &resp);
+bool createResponse(response &resp, bool isOkRequest);

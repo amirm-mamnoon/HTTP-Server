@@ -5,8 +5,7 @@
 
 #include "../validator/validator.hpp"
 
-
-struct requestHeader 
+struct requestHeader
 {
     std::string key;
     std::string value;
@@ -21,7 +20,7 @@ struct request
     std::string body;
 };
 
-void print_request(const request& req);
-void trim(std::string& str);
-bool pars_request_line(std::string line, request& req);
-bool pars_header_line(std::string line, request& req); 
+void print_request(const request &req);
+void trim(std::string &str);
+bool pars_request_line(std::string line, request &req);
+bool pars_header_line(std::string line, request &req);

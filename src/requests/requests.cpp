@@ -4,27 +4,28 @@
 
 #include <iostream>
 
-using std::string;
 using std::cout;
+using std::string;
 
 const string SEPARATOR = "\r\n";
 
-void print_request(const request& req) {
+void print_request(const request &req)
+{
     cout << "=== HTTP Request ===\n";
     cout << "Method:  " << req.method << "\n";
     cout << "URI:     " << req.uri << "\n";
     cout << "Version: " << req.version << "\n";
-    
+
     cout << "\nHeaders:\n";
-    for (const auto& h : req.header) {
+    for (const auto &h : req.header)
+    {
         cout << "  " << h.key << ": " << h.value << "\n";
     }
-    
+
     cout << "\nBody:\n";
     cout << req.body << "\n";
     cout << "====================\n";
 }
-
 
 void trim(string &str)
 {

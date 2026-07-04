@@ -45,17 +45,20 @@ bool sendResponse(int fd, const response &resp)
     return true;
 }
 
-
-bool createResponse(response& resp, bool isOkRequest) { // make it more dynamic/request driven
+bool createResponse(response &resp, bool isOkRequest)
+{
     int flag = true;
 
     responseHeader h;
     h.key = "foo";
     h.value = "baz";
-    if (isOkRequest) {
+    if (isOkRequest)
+    {
         resp.statusCode = 200;
         resp.statusText = "OK";
-    } else {
+    }
+    else
+    {
         resp.statusCode = 400;
         resp.statusText = "Bad Request";
     }
