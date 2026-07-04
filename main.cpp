@@ -17,6 +17,7 @@
 #include "src/validator/validator.hpp"
 #include "src/router/router.hpp"
 #include "src/handler/handler.hpp"
+#include "src/handler/file_handler.hpp"
 
 using std::cout;
 
@@ -244,6 +245,10 @@ int main()
                 if (route_iterator != router.end())
                 {
                     resp = route_iterator->second(req);
+                }
+                else if (req.method == "GET" && endsWith(req.uri, ".html"))
+                {
+                    resp = handle_html_file(req);
                 }
                 else
                 {

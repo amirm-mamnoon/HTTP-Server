@@ -19,6 +19,7 @@ add_executable(serv.out
     src/validator/validator.cpp
     src/router/router.hpp
     src/handler/handler.cpp
+    src/handler/file_handler.cpp
 )
 
 # Link pthread
