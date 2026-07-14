@@ -47,7 +47,6 @@ enum class content_types
 };
 
 bool validateRequest(request &req);
-bool validateResponse(const response &res);
 
 // helper functions
 std::string methodToString(methods method);

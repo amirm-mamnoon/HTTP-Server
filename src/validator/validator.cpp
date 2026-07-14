@@ -129,7 +129,3 @@ bool validateRequest(request &req)
 
     return true;
 }
-
-bool validateResponse(const response &req)
-{
-}
