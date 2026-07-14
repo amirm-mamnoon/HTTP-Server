@@ -165,7 +165,9 @@ void pars_fd_to_queue(int fd, ClientState &state)
                 }
                 state.cv.notify_one();
                 sentence.clear();
-            } else if (sentence.length() >= 8192) {
+            }
+            else if (sentence.length() >= 8192)
+            {
                 std::cerr << RED << "✖ [ERROR] Line exceeded max_line_length (" << max_line_length << ")\n";
                 max_length_exceeded = true;
                 sentence.clear();
@@ -175,7 +177,8 @@ void pars_fd_to_queue(int fd, ClientState &state)
         std::memset(buffer, 0, sizeof(buffer));
     }
 
-    if (bytesRead < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+    if (bytesRead < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+    {
         std::cerr << RED << "⏳ [TIMEOUT] Client reading timed out. Dropping connection." << RESET << "\n";
     }
 
