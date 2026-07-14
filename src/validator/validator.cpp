@@ -94,11 +94,6 @@ bool validateMethod__(const request &req)
     return false;
 }
 
-bool validateURL__(const request &req)
-{
-    return true; // for now
-}
-
 int validateContentType__(const request &req)
 {
     for (const auto &h : req.header)
@@ -119,9 +114,6 @@ int validateContentType__(const request &req)
 bool validateRequest(request &req)
 {
     if (!validateMethod__(req))
-        return false;
-
-    if (!validateURL__(req))
         return false;
 
     if (validateContentType__(req) == 0)
