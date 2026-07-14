@@ -1,8 +1,13 @@
 #include "requests.hpp"
-
 #include "../validator/validator.hpp"
-
 #include <iostream>
+
+#define RESET   "\033[0m"
+#define BOLD    "\033[1m"
+#define GREEN   "\033[32m"
+#define YELLOW  "\033[33m"
+#define CYAN    "\033[36m"
+#define DIM     "\033[2m"
 
 using std::cout;
 using std::string;
@@ -11,20 +16,25 @@ const string SEPARATOR = "\r\n";
 
 void print_request(const request &req)
 {
-    cout << "=== HTTP Request ===\n";
-    cout << "Method:  " << req.method << "\n";
-    cout << "URI:     " << req.uri << "\n";
-    cout << "Version: " << req.version << "\n";
+    cout << "\n" << CYAN << BOLD << "╭─────────── HTTP REQUEST ───────────╮" << RESET << "\n";
+    
+    cout << CYAN << "│ " << YELLOW << BOLD << "Method:  " << RESET << req.method << "\n";
+    cout << CYAN << "│ " << YELLOW << BOLD << "URI:     " << RESET << req.uri << "\n";
+    cout << CYAN << "│ " << YELLOW << BOLD << "Version: " << RESET << req.version << "\n";
 
-    cout << "\nHeaders:\n";
+    cout << CYAN << "├────────────── Headers ─────────────┤" << RESET << "\n";
     for (const auto &h : req.header)
     {
-        cout << "  " << h.key << ": " << h.value << "\n";
+        cout << CYAN << "│ " << GREEN << h.key << ": " << RESET << DIM << h.value << RESET << "\n";
     }
 
-    cout << "\nBody:\n";
-    cout << req.body << "\n";
-    cout << "====================\n";
+    if (!req.body.empty() && req.body != "[LOG]: NO LOG")
+    {
+        cout << CYAN << "├──────────────── Body ──────────────┤" << RESET << "\n";
+        cout << CYAN << "│ " << RESET << req.body << "\n";
+    }
+    
+    cout << CYAN << BOLD << "╰────────────────────────────────────╯" << RESET << "\n";
 }
 
 void trim(string &str)
@@ -48,7 +58,7 @@ bool pars_request_line(string line, request &req)
     size_t space1 = line.find(' ');
     size_t space2 = line.find(' ', space1 + 1);
 
-    if (space2 == std::string::npos || space2 == std::string::npos)
+    if (space2 == std::string::npos || space1 == std::string::npos)
     {
         return false;
     }
