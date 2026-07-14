@@ -4,6 +4,17 @@ A HTTP/1.1 server built **from scratch in C++**, using raw POSIX sockets — no 
 
 The goal of this project is to understand what actually happens under the hood of a web server: socket lifecycle, request parsing state machines, concurrency with threads, and routing — all without a framework doing the work for you.
 
+# Honorable Mention
+
+Special thanks to AI for:
+- Writing this README (because I wasn't writing one)
+- Making my debug logs look like a fireworks show
+- Providing validation that my code doesn't *completely* suck
+
+Built from raw sockets. Documented from raw prompts.
+
+**Note:** even this part I asked AI to write :)))
+
 ## Features
 
 - **Raw socket server** — binds, listens, and accepts connections using `socket()`, `bind()`, `listen()`, `accept()` directly (`sys/socket.h`, `netinet/in.h`).
